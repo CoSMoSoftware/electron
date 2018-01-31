@@ -31,21 +31,18 @@ async function getDraftRelease (version, skipValidation) {
   let drafts
   let versionToCheck
   if (version) {
-    drafts = releaseInfo.data
-      .filter(release => release.tag_name === version)
     versionToCheck = version
   } else {
-    drafts = releaseInfo.data
-      .filter(release => release.draft)
     versionToCheck = pkgVersion
   }
-
+  drafts = releaseInfo.data
+    .filter(release => release.tag_name === versionToCheck &&
+      release.draft === true)
   const draft = drafts[0]
   if (!skipValidation) {
     failureCount = 0
     check(drafts.length === 1, 'one draft exists', true)
-    check(draft.tag_name === versionToCheck, `draft release version matches local package.json (${versionToCheck})`)
-    if (versionToCheck.indexOf('beta')) {
+    if (versionToCheck.indexOf('beta') > -1) {
       check(draft.prerelease, 'draft is a prerelease')
     }
     check(draft.body.length > 50 && !draft.body.includes('(placeholder)'), 'draft has release notes')
@@ -100,7 +97,6 @@ function assetsForVersion (version) {
     `electron-${version}-linux-armv7l.zip`,
     `electron-${version}-linux-ia32-symbols.zip`,
     `electron-${version}-linux-ia32.zip`,
-    `electron-${version}-linux-mips64el.zip`,
     `electron-${version}-linux-x64-symbols.zip`,
     `electron-${version}-linux-x64.zip`,
     `electron-${version}-mas-x64-dsym.zip`,
@@ -119,7 +115,6 @@ function assetsForVersion (version) {
     `ffmpeg-${version}-linux-arm64.zip`,
     `ffmpeg-${version}-linux-armv7l.zip`,
     `ffmpeg-${version}-linux-ia32.zip`,
-    `ffmpeg-${version}-linux-mips64el.zip`,
     `ffmpeg-${version}-linux-x64.zip`,
     `ffmpeg-${version}-mas-x64.zip`,
     `ffmpeg-${version}-win32-ia32.zip`,
@@ -215,7 +210,7 @@ async function uploadShasumFile (filePath, fileName, release) {
     filePath,
     name: fileName
   }
-  return await github.repos.uploadAsset(githubOpts)
+  return github.repos.uploadAsset(githubOpts)
     .catch(err => {
       console.log(`${fail} Error uploading ${filePath} to GitHub:`, err)
       process.exit(1)
@@ -250,7 +245,7 @@ async function publishRelease (release) {
     tag_name: release.tag_name,
     draft: false
   }
-  return await github.repos.editRelease(githubOpts)
+  return github.repos.editRelease(githubOpts)
     .catch(err => {
       console.log(`${fail} Error publishing release:`, err)
       process.exit(1)
@@ -447,7 +442,7 @@ async function cleanupReleaseBranch () {
   await callGit(['branch', '-D', 'release'], errorMessage, successMessage)
   errorMessage = `Could not delete remote release branch.`
   successMessage = `Successfully deleted remote release branch.`
-  return await callGit(['push', 'origin', ':release'], errorMessage, successMessage)
+  return callGit(['push', 'origin', ':release'], errorMessage, successMessage)
 }
 
 async function callGit (args, errorMessage, successMessage) {
